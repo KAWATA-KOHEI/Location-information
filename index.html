@@ -101,21 +101,21 @@
 
   // 今日の記録を読み込む
   async function loadTodayRecords() {
-    const tbody = document.getElementById('recordTable');
+    const tbodyId  = isViewMode ? 'viewRecordTable'  : 'recordTable';
+    const countId  = isViewMode ? 'viewRecordCount'  : 'recordCount';
+    const tbody    = document.getElementById(tbodyId);
+    const countEl  = document.getElementById(countId);
     if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-gray-400 text-sm">読み込み中…</td></tr>`;
 
-    // 日付の取得（記録モードは 'datePicker' が存在しないので viewDate を優先）
-    const selectedDate = (document.getElementById('viewDate') || document.getElementById('datePicker'))?.value;
+    const selectedDate = document.getElementById('viewDate')?.value;
 
     let queryStart, queryEnd;
     if (selectedDate) {
       queryStart = selectedDate + 'T00:00:00+09:00';
       queryEnd   = selectedDate + 'T23:59:59+09:00';
     } else {
-      // 日本時間で今日の00:00〜23:59
       const now = new Date();
-      const jstOffset = 9 * 60;
-      const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60000);
+      const jstNow = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
       const y = jstNow.getFullYear(), m = String(jstNow.getMonth()+1).padStart(2,'0'), d = String(jstNow.getDate()).padStart(2,'0');
       queryStart = `${y}-${m}-${d}T00:00:00+09:00`;
       queryEnd   = `${y}-${m}-${d}T23:59:59+09:00`;
@@ -134,13 +134,11 @@
       if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-red-400 text-sm">取得失敗: ${error.message || error.code}</td></tr>`;
       return;
     }
-    renderTable(data || []);
+    renderTable(data || [], tbody, countEl);
   }
 
   // テーブルを描画
-  function renderTable(rows) {
-    const tbody = document.getElementById('recordTable');
-    const countEl = document.getElementById('recordCount');
+  function renderTable(rows, tbody, countEl) {
     if (!tbody) return;
     if (countEl) countEl.textContent = rows.length + '件';
 
@@ -149,7 +147,7 @@
       return;
     }
     tbody.innerHTML = rows.map(r => {
-      const dt = new Date(r.recorded_at);
+      const dt   = new Date(r.recorded_at);
       const time = dt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
       const badge = r.is_manual
         ? `<span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">手動</span>`
@@ -306,7 +304,7 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
       <span class="font-medium text-gray-700 text-sm">行動履歴</span>
-      <span id="recordCount" class="text-xs text-gray-400">0件</span>
+      <span id="viewRecordCount" class="text-xs text-gray-400">0件</span>
     </div>
     <table class="w-full">
       <thead>
@@ -316,7 +314,7 @@
           <th class="py-2 px-4 text-left text-xs text-gray-400 font-medium w-16"></th>
         </tr>
       </thead>
-      <tbody id="recordTable">
+      <tbody id="viewRecordTable">
         <tr><td colspan="3" class="text-center py-8 text-gray-400 text-sm">取得中…</td></tr>
       </tbody>
     </table>
