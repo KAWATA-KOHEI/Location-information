@@ -101,12 +101,25 @@
 
   // 今日の記録を読み込む
   async function loadTodayRecords() {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const end   = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-    const selectedDate = document.getElementById('datePicker')?.value;
-    const queryStart = selectedDate ? selectedDate + 'T00:00:00+09:00' : start;
-    const queryEnd   = selectedDate ? selectedDate + 'T23:59:59+09:00' : end;
+    const tbody = document.getElementById('recordTable');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-gray-400 text-sm">読み込み中…</td></tr>`;
+
+    // 日付の取得（記録モードは 'datePicker' が存在しないので viewDate を優先）
+    const selectedDate = (document.getElementById('viewDate') || document.getElementById('datePicker'))?.value;
+
+    let queryStart, queryEnd;
+    if (selectedDate) {
+      queryStart = selectedDate + 'T00:00:00+09:00';
+      queryEnd   = selectedDate + 'T23:59:59+09:00';
+    } else {
+      // 日本時間で今日の00:00〜23:59
+      const now = new Date();
+      const jstOffset = 9 * 60;
+      const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60000);
+      const y = jstNow.getFullYear(), m = String(jstNow.getMonth()+1).padStart(2,'0'), d = String(jstNow.getDate()).padStart(2,'0');
+      queryStart = `${y}-${m}-${d}T00:00:00+09:00`;
+      queryEnd   = `${y}-${m}-${d}T23:59:59+09:00`;
+    }
 
     const { data, error } = await db
       .from('locations')
@@ -116,7 +129,11 @@
       .lte('recorded_at', queryEnd)
       .order('recorded_at', { ascending: true });
 
-    if (error) { console.error(error); return; }
+    if (error) {
+      console.error('データ取得エラー:', error);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-red-400 text-sm">取得失敗: ${error.message || error.code}</td></tr>`;
+      return;
+    }
     renderTable(data || []);
   }
 
