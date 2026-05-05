@@ -19,8 +19,8 @@
 
 <!-- ========== ここにSupabase設定を入力 ========== -->
 <script>
-  const SUPABASE_URL  = 'https://wyqijmztuvnouuwjvxpp.supabase.co';   // 例: https://xxxxxx.supabase.co
-  const SUPABASE_ANON = 'sb_publishable_RL0gixj_d6fP1aGeDvdl-g_5PcVh3w2';              // 例: eyJhbGciOiJIUzI1NiIs...
+  const SUPABASE_URL  = 'https://wyqijmztuvnouuwjvxpp.supabase.co';
+  const SUPABASE_ANON = 'sb_publishable_RL0gixj_d6fP1aGeDvdl-g_5PcVh3w2';
   const SHARE_PARAM   = 'view'; // 共有URLのパラメータ名
 </script>
 <!-- ============================================= -->
@@ -46,14 +46,16 @@
   // 現在地を取得して地名に変換し、Supabaseへ保存
   async function recordLocation(isManual = false) {
     if (!navigator.geolocation) {
-      alert('このブラウザはGPSに対応していません');
+      updateStatus('GPS非対応ブラウザです', 'red');
       return;
     }
-    updateStatus('取得中…', 'yellow');
+    updateStatus('位置情報を取得中…', 'yellow');
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
+      updateStatus('地名を変換中…', 'yellow');
       const placeName = await reversGeocode(lat, lng);
+      updateStatus('Supabaseに保存中…', 'yellow');
       const { error } = await db.from('locations').insert({
         user_id:     myUserId,
         lat:         lat,
@@ -63,16 +65,21 @@
         recorded_at: new Date().toISOString()
       });
       if (error) {
-        console.error(error);
-        updateStatus('保存失敗 ⚠️', 'red');
+        console.error('Supabaseエラー:', error);
+        updateStatus('DB保存失敗: ' + (error.message || error.code || JSON.stringify(error)), 'red');
       } else {
         updateStatus('記録済み ✓', 'green');
         loadTodayRecords();
       }
     }, (err) => {
-      console.error(err);
-      updateStatus('位置情報が取得できません ⚠️', 'red');
-    }, { enableHighAccuracy: true, timeout: 10000 });
+      console.error('GPSエラー:', err);
+      const gpsMessages = {
+        1: 'GPS許可が拒否されています（ブラウザの設定で許可してください）',
+        2: 'GPSで位置が取得できませんでした',
+        3: 'GPS取得がタイムアウトしました',
+      };
+      updateStatus(gpsMessages[err.code] || 'GPS取得エラー: ' + err.message, 'red');
+    }, { enableHighAccuracy: true, timeout: 15000 });
   }
 
   // 緯度経度 → 地名（OpenStreetMap Nominatim・無料・APIキー不要）
@@ -178,8 +185,20 @@
   function initRecordMode() {
     document.getElementById('app-record').style.display = 'block';
     document.getElementById('todayDate').textContent = new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-    startAutoRecord();
+    checkSupabaseThenStart();
     loadTodayRecords();
+  }
+
+  async function checkSupabaseThenStart() {
+    // Supabaseへの接続テスト（locationsテーブルが存在するか確認）
+    const { error } = await db.from('locations').select('id').limit(1);
+    if (error) {
+      updateStatus('Supabase接続エラー: ' + (error.message || error.code), 'red');
+      console.error('Supabase接続テスト失敗:', error);
+      return;
+    }
+    // 接続OK → GPS自動記録開始
+    startAutoRecord();
   }
 
   function initViewMode() {
