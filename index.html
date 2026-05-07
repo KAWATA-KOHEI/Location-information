@@ -184,7 +184,7 @@
     navigator.clipboard.writeText(url).then(() => {
       const btn = document.getElementById('shareBtn');
       btn.textContent = '✅ コピーしました';
-      setTimeout(() => { btn.textContent = '🔗 妻用のURLをコピー'; }, 2000);
+      setTimeout(() => { btn.textContent = '🔗 記録用のURLをコピー'; }, 2000);
     });
   }
 
@@ -249,13 +249,13 @@
 
   <!-- 共有URL -->
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
-    <p class="text-sm text-gray-500 mb-3">妻にこのURLを送ると、一覧表が見られます</p>
+    <p class="text-sm text-gray-500 mb-3">このURLを送ると、一覧表が見られます</p>
     <button
       id="shareBtn"
       onclick="generateShareUrl()"
       class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl transition-colors text-sm"
     >
-      🔗 妻用のURLをコピー
+      🔗 記録用のURLをコピー
     </button>
   </div>
 
@@ -281,7 +281,7 @@
 
 </div>
 
-<!-- ===== 閲覧モード（妻用） ===== -->
+<!-- ===== 閲覧モード（記録用） ===== -->
 <div id="app-view" style="display:none" class="max-w-lg mx-auto px-4 py-8">
 
   <div class="mb-6">
