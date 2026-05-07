@@ -137,6 +137,15 @@
     renderTable(data || [], tbody, countEl);
   }
 
+  // メモを保存
+  async function saveMemo(id, message) {
+    const { error } = await db.from('locations').update({ message }).eq('id', id);
+    if (error) {
+      console.error('メモ保存失敗:', error);
+      alert('メモの保存に失敗しました');
+    }
+  }
+
   // テーブルを描画
   function renderTable(rows, tbody, countEl) {
     if (!tbody) return;
@@ -152,11 +161,26 @@
       const badge = r.is_manual
         ? `<span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">手動</span>`
         : `<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">自動</span>`;
+
+      const memoArea = isViewMode
+        ? (r.message ? `<div class="text-xs text-gray-500 mt-1">${r.message}</div>` : '')
+        : `<input
+            type="text"
+            value="${(r.message || '').replace(/"/g, '&quot;')}"
+            placeholder="メモを追加…"
+            class="mt-1 w-full text-xs text-gray-500 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-300 focus:outline-none py-0.5 placeholder-gray-300"
+            onblur="saveMemo('${r.id}', this.value)"
+            onkeydown="if(event.key==='Enter'){this.blur()}"
+           />`;
+
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
-          <td class="py-3 px-4 text-sm font-mono text-gray-700 whitespace-nowrap">${time}</td>
-          <td class="py-3 px-4 text-sm text-gray-800">${r.place_name || '—'}</td>
-          <td class="py-3 px-4">${badge}</td>
+          <td class="py-3 px-4 text-sm font-mono text-gray-700 whitespace-nowrap align-top">${time}</td>
+          <td class="py-3 px-4 text-sm text-gray-800">
+            <div>${r.place_name || '—'}</div>
+            ${memoArea}
+          </td>
+          <td class="py-3 px-4 align-top">${badge}</td>
         </tr>`;
     }).join('');
   }
@@ -249,13 +273,13 @@
 
   <!-- 共有URL -->
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
-    <p class="text-sm text-gray-500 mb-3">妻にこのURLを送ると、一覧表が見られます</p>
+    <p class="text-sm text-gray-500 mb-3">このURLを送ると、一覧表が見られます</p>
     <button
       id="shareBtn"
       onclick="generateShareUrl()"
       class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl transition-colors text-sm"
     >
-      🔗 妻用のURLをコピー
+      🔗 記録用のURLをコピー
     </button>
   </div>
 
@@ -281,7 +305,7 @@
 
 </div>
 
-<!-- ===== 閲覧モード（妻用） ===== -->
+<!-- ===== 閲覧モード（記録用） ===== -->
 <div id="app-view" style="display:none" class="max-w-lg mx-auto px-4 py-8">
 
   <div class="mb-6">
