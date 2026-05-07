@@ -101,8 +101,10 @@
 
   // 今日の記録を読み込む
   async function loadTodayRecords() {
-    const tbody   = document.getElementById('recordTable');
-    const countEl = document.getElementById('recordCount');
+    const tbodyId  = isViewMode ? 'viewRecordTable'  : 'recordTable';
+    const countId  = isViewMode ? 'viewRecordCount'  : 'recordCount';
+    const tbody    = document.getElementById(tbodyId);
+    const countEl  = document.getElementById(countId);
     if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-gray-400 text-sm">読み込み中…</td></tr>`;
 
     const selectedDate = document.getElementById('viewDate')?.value;
@@ -135,15 +137,6 @@
     renderTable(data || [], tbody, countEl);
   }
 
-  // メモを保存
-  async function saveMemo(id, message) {
-    const { error } = await db.from('locations').update({ message }).eq('id', id);
-    if (error) {
-      console.error('メモ保存失敗:', error);
-      alert('メモ保存失敗: ' + (error.message || error.code || JSON.stringify(error)));
-    }
-  }
-
   // テーブルを描画
   function renderTable(rows, tbody, countEl) {
     if (!tbody) return;
@@ -159,24 +152,11 @@
       const badge = r.is_manual
         ? `<span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">手動</span>`
         : `<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">自動</span>`;
-
-      const memoArea = `<input
-            type="text"
-            value="${(r.message || '').replace(/"/g, '&quot;')}"
-            placeholder="メモを追加…"
-            class="mt-1 w-full text-xs text-gray-500 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-300 focus:outline-none py-0.5 placeholder-gray-300"
-            onblur="saveMemo('${r.id}', this.value)"
-            onkeydown="if(event.key==='Enter'){this.blur()}"
-           />`;
-
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
-          <td class="py-3 px-4 text-sm font-mono text-gray-700 whitespace-nowrap align-top">${time}</td>
-          <td class="py-3 px-4 text-sm text-gray-800">
-            <div>${r.place_name || '—'}</div>
-            ${memoArea}
-          </td>
-          <td class="py-3 px-4 align-top">${badge}</td>
+          <td class="py-3 px-4 text-sm font-mono text-gray-700 whitespace-nowrap">${time}</td>
+          <td class="py-3 px-4 text-sm text-gray-800">${r.place_name || '—'}</td>
+          <td class="py-3 px-4">${badge}</td>
         </tr>`;
     }).join('');
   }
@@ -210,19 +190,16 @@
 
   // ページ読み込み後に初期化
   window.addEventListener('DOMContentLoaded', () => {
-    // 閲覧モードでも記録モードの画面を使う（同じuser_idで記録共有）
-    if (isViewMode) myUserId = viewUserId;
-    initRecordMode();
+    if (isViewMode) {
+      initViewMode();
+    } else {
+      initRecordMode();
+    }
   });
 
   function initRecordMode() {
     document.getElementById('app-record').style.display = 'block';
     document.getElementById('todayDate').textContent = new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
-    // 閲覧モード（妻）のときは共有URLボタンを隠す
-    if (isViewMode) {
-      const shareCard = document.getElementById('shareCard');
-      if (shareCard) shareCard.style.display = 'none';
-    }
     checkSupabaseThenStart();
     loadTodayRecords();
   }
@@ -271,14 +248,14 @@
   </div>
 
   <!-- 共有URL -->
-  <div id="shareCard" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
-    <p class="text-sm text-gray-500 mb-3">このURLを送ると、一覧表が見られます</p>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
+    <p class="text-sm text-gray-500 mb-3">妻にこのURLを送ると、一覧表が見られます</p>
     <button
       id="shareBtn"
       onclick="generateShareUrl()"
       class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl transition-colors text-sm"
     >
-      🔗 記録用のURLをコピー
+      🔗 妻用のURLをコピー
     </button>
   </div>
 
@@ -304,7 +281,46 @@
 
 </div>
 
-<!-- ===== 閲覧モード（記録用） ===== -->
+<!-- ===== 閲覧モード（妻用） ===== -->
+<div id="app-view" style="display:none" class="max-w-lg mx-auto px-4 py-8">
+
+  <div class="mb-6">
+    <h1 class="text-xl font-bold text-gray-800">📋 行動履歴</h1>
+    <p class="text-xs text-gray-400 mt-1">👀 閲覧専用</p>
+  </div>
+
+  <!-- 日付選択 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+    <label class="text-sm text-gray-500 block mb-2">日付を選ぶ</label>
+    <input
+      type="date"
+      id="viewDate"
+      onchange="loadTodayRecords()"
+      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+    />
+  </div>
+
+  <!-- 記録一覧 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <span class="font-medium text-gray-700 text-sm">行動履歴</span>
+      <span id="viewRecordCount" class="text-xs text-gray-400">0件</span>
+    </div>
+    <table class="w-full">
+      <thead>
+        <tr class="bg-gray-50">
+          <th class="py-2 px-4 text-left text-xs text-gray-400 font-medium w-20">時刻</th>
+          <th class="py-2 px-4 text-left text-xs text-gray-400 font-medium">場所</th>
+          <th class="py-2 px-4 text-left text-xs text-gray-400 font-medium w-16"></th>
+        </tr>
+      </thead>
+      <tbody id="viewRecordTable">
+        <tr><td colspan="3" class="text-center py-8 text-gray-400 text-sm">取得中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
 
 </body>
 </html>
